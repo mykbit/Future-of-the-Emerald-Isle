@@ -10,6 +10,14 @@ include_directories(
 	glad-3.3/include/
 )
 
+### GLEW ###
+
+add_subdirectory (glew-2.1.0/build/cmake)
+
+include_directories(
+	glew-2.1.0/include/
+)
+
 
 ### GLFW ###
 
@@ -18,15 +26,6 @@ add_subdirectory (glfw-3.1.2)
 include_directories(
 	glfw-3.1.2/include/GLFW/
 )
-
-
-### JSON ###
-add_subdirectory(json)
-
-include_directories(
-    json/include/
-)
-
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 set(OPENGL_LIBRARY
@@ -42,3 +41,4 @@ set(OPENGL_LIBRARY
 	${GLFW_LIBRARIES}
 )
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
