@@ -7,6 +7,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include "static_model.h"
+#include "skybox.h"
 
 #include <iomanip>
 #include <vector>
@@ -25,12 +26,12 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
 // Camera
 static float cameraSpeed = 0.5f;
-static glm::vec3 eye_center(0.0f, 0.0f, 0.0f);
+static glm::vec3 eye_center(0.0f, 5.0f, -10.0f);
 static glm::vec3 lookat(0.0f, 0.0f, -1.0f);
 static glm::vec3 up(0.0f, 1.0f, 0.0f);
 static float FoV = 45.0f;
 static float zNear = 0.1f;
-static float zFar = 1500.0f; 
+static float zFar = 2000.0f; 
 
 // Lighting  
 static glm::vec3 lightIntensity(5e6f, 5e6f, 5e6f);
@@ -81,6 +82,8 @@ int main(void)
 	// Our 3D character
 	StaticModel model = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", "../src/shaders/simple.vert", "../src/shaders/simple.frag", glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), 0.5, glm::vec3(0.0f, 1.0f, 0.0f), lightPosition, lightIntensity);
 
+	Skybox skybox = Skybox(glm::vec3(0, 0, 0), glm::vec3(-1000, -1000, -1000));
+
 	// Camera setup
   	glm::mat4 viewMatrix, projectionMatrix;
 	projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
@@ -104,6 +107,8 @@ int main(void)
 		// Rendering
 		viewMatrix = glm::lookAt(eye_center, lookat, up);
 		glm::mat4 vp = projectionMatrix * viewMatrix;
+		
+		skybox.render(vp);
 		model.render(vp);
 
 		// FPS tracking 

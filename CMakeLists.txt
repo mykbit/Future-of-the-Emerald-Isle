@@ -21,6 +21,7 @@ include_directories(
 add_executable(emerald_isle
 	src/main.cpp
 	src/static_model.cpp
+	src/skybox.cpp
 	src/render/shader.cpp
 )
 target_link_libraries(emerald_isle
