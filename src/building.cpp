@@ -1,10 +1,8 @@
-#include "surface.h"
+#include "building.h"
+#include "glm/detail/type_mat.hpp"
 #include "stb_image.h"
 
-Surface::Surface(glm::vec3 position, glm::vec3 scale) {
-    // Define scale of the building geometry
-    this->position = position;
-    this->scale = scale;
+Building::Building() {
     // Create a vertex array object
     glGenVertexArrays(1, &this->vertexArrayID);
     glBindVertexArray(this->vertexArrayID);
@@ -17,6 +15,7 @@ Surface::Surface(glm::vec3 position, glm::vec3 scale) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->indexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->index_buffer_data), this->index_buffer_data, GL_STATIC_DRAW);
     // Create a UV buffer object to store the UV data
+    for (int i = 0; i < 24; ++i) this->uv_buffer_data[2*i+1] *= 5;
     glGenBuffers(1, &this->uvBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, this->uvBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(this->uv_buffer_data), this->uv_buffer_data, GL_STATIC_DRAW);
@@ -29,11 +28,11 @@ Surface::Surface(glm::vec3 position, glm::vec3 scale) {
     }
     // Get a handle for our "MVP" uniform
     mvpMatrixID = glGetUniformLocation(shaderID, "MVP");
-    textureID = LoadTextureTileBox("../src/assets/textures/surface.jpg");
+    textureID = LoadTextureTileBox("../src/assets/textures/building.jpg");
     textureSamplerID = glGetUniformLocation(shaderID,"textureSampler");
 }
 
-GLuint Surface::LoadTextureTileBox(const char *texture_file_path) {
+GLuint Building::LoadTextureTileBox(const char *texture_file_path) {
     int w, h, channels;
     uint8_t* img = stbi_load(texture_file_path, &w, &h, &channels, 3);
     GLuint texture;
@@ -57,7 +56,7 @@ GLuint Surface::LoadTextureTileBox(const char *texture_file_path) {
     return texture;
 }
 
-void Surface::render(glm::mat4 cameraMatrix) {
+void Building::render(glm::mat4 cameraMatrix, glm::mat4 transform) {
     glUseProgram(this->shaderID);
 
     glBindVertexArray(this->vertexArrayID);
@@ -66,15 +65,8 @@ void Surface::render(glm::mat4 cameraMatrix) {
 	glBindBuffer(GL_ARRAY_BUFFER, this->vertexBufferID);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->indexBufferID);
-	// TODO: Model transform 
-	// -----------------------
-    glm::mat4 modelMatrix = glm::mat4();    
-    // Scale the box along each axis to make it look like a building
-	modelMatrix = glm::translate(modelMatrix, position);
-	modelMatrix = glm::scale(modelMatrix, scale);
-    // -----------------------
-	// Set model-view-projection matrix
-	glm::mat4 mvp = cameraMatrix * modelMatrix;
+
+	glm::mat4 mvp = cameraMatrix * transform;
 	glUniformMatrix4fv(this->mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
 	// TODO: Enable UV buffer and texture sampler
 	glEnableVertexAttribArray(2);
@@ -87,7 +79,7 @@ void Surface::render(glm::mat4 cameraMatrix) {
 	// Draw the box
 	glDrawElements(
 		GL_TRIANGLES,      // mode
-		6,    			   // number of indices
+		sizeof(this->index_buffer_data)/sizeof(this->index_buffer_data[0]),    			   // number of indices
 		GL_UNSIGNED_INT,   // type
 		(void*)0           // element array buffer offset
 	);
@@ -98,7 +90,7 @@ void Surface::render(glm::mat4 cameraMatrix) {
     glBindVertexArray(0);
 }
 
-void Surface::cleanup() {
+void Building::cleanup() {
     glDeleteBuffers(1, &vertexBufferID);
     glDeleteBuffers(1, &indexBufferID);
     glDeleteVertexArrays(1, &vertexArrayID);
@@ -106,5 +98,3 @@ void Surface::cleanup() {
     glDeleteTextures(1, &textureID);
     glDeleteProgram(shaderID);
 }
-
-

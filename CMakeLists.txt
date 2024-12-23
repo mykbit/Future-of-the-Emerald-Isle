@@ -23,6 +23,7 @@ add_executable(emerald_isle
 	src/static_model.cpp
 	src/skybox.cpp
 	src/surface.cpp
+	src/building.cpp
 	src/render/shader.cpp
 )
 target_link_libraries(emerald_isle

@@ -16,7 +16,7 @@ StaticModel::StaticModel(const char* modelPath, const char* vertexShader, const 
 	this->modelPos = glm::translate(glm::mat4(1.0f), modelPos);
 	this->modelRot = glm::rotate(glm::mat4(1.0f), glm::radians(radians), axisRot);
 	this->modelScale = glm::scale(glm::mat4(1.0f), modelScale);
-	this->modelMatrix = this->modelPos * this->modelRot * this->modelScale;
+	this->modelMatrix = this->modelPos * this->modelScale * this->modelRot;
     this->lightPosition = lightPosition;
     this->lightIntensity = lightIntensity;
 	// Load shaders

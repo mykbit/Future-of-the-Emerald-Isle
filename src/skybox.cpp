@@ -68,8 +68,8 @@ void Skybox::render(glm::mat4 cameraMatrix) {
 	// -----------------------
     glm::mat4 modelMatrix = glm::mat4();    
     // Scale the box along each axis to make it look like a building
-	modelMatrix = glm::scale(modelMatrix, scale);
 	modelMatrix = glm::translate(modelMatrix, position);
+	modelMatrix = glm::scale(modelMatrix, scale);
     // -----------------------
 	// Set model-view-projection matrix
 	glm::mat4 mvp = cameraMatrix * modelMatrix;

@@ -9,8 +9,10 @@
 #include "static_model.h"
 #include "skybox.h"
 #include "surface.h"
+#include "building.h"
 
 #include <iomanip>
+#include <random>
 #include <vector>
 #include <iostream>
 #include <sstream>
@@ -26,13 +28,13 @@ static int windowHeight = 768;
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
 
 // Camera
-static float cameraSpeed = 0.5f;
+static float cameraSpeed = 10.0f;
 static glm::vec3 eye_center(0.0f, 40.0f, -150.0f);
 static glm::vec3 lookat(0.0f, 0.0f, -1.0f);
 static glm::vec3 up(0.0f, 1.0f, 0.0f);
 static float FoV = 45.0f;
 static float zNear = 0.1f;
-static float zFar = 2000.0f; 
+static float zFar = 15000.0f; 
 
 // Lighting  
 static glm::vec3 lightIntensity(5e6f, 5e6f, 5e6f);
@@ -81,12 +83,34 @@ int main(void)
 	glEnable(GL_CULL_FACE);
 
 	// Our 3D character
-	StaticModel model = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", "../src/shaders/simple.vert", "../src/shaders/simple.frag", glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.5, glm::vec3(0.0f, 1.0f, 0.0f), lightPosition, lightIntensity);
+	StaticModel model = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", "../src/shaders/simple.vert", "../src/shaders/simple.frag", glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), 90, glm::vec3(0.0f, 1.0f, 0.0f), lightPosition, lightIntensity);
 
-	Skybox skybox = Skybox(glm::vec3(0, 0, 0), glm::vec3(-1000, -1000, -1000));
+	Skybox skybox = Skybox(glm::vec3(0, 0, 0), glm::vec3(-10000, -10000, -10000));
 
-	Surface surface = Surface(glm::vec3(0, 0, 0), glm::vec3(1000, 1, 1000));
+	Surface surface = Surface(glm::vec3(0, 0, 0), glm::vec3(10000, 1, 10000));
 
+	Building building = Building();
+
+	std::vector<glm::mat4> buildingTransforms;
+	float building_spacing = 100.0f;
+	int min_x = 20;
+	int max_x = 25;
+	int min_y = 40;
+	int max_y = 100;
+	std::random_device rd;
+    std::mt19937 engine(rd());
+
+	for (int i = -2; i < 2; i++) {
+		for (int j = -2; j < 2; j++) {
+			int x = std::uniform_int_distribution<int>(min_x, max_x)(engine);
+			int y = std::uniform_int_distribution<int>(min_y, max_y)(engine);
+
+			glm::mat4 transform = glm::mat4(1.0f);
+			transform = glm::translate(transform, glm::vec3(i * building_spacing, y, j * building_spacing));
+			transform = glm::scale(transform, glm::vec3(x, y, 16));
+			buildingTransforms.push_back(transform);
+		}
+	}
 
 	// Camera setup
   	glm::mat4 viewMatrix, projectionMatrix;
@@ -115,7 +139,10 @@ int main(void)
 		skybox.render(vp);
 		surface.render(vp);
 		model.render(vp);
-
+		for (glm::mat4 &t : buildingTransforms)
+		{
+			building.render(vp, t);
+		}
 		// FPS tracking 
 		// Count number of frames over a few seconds and take average
 		frames++;
@@ -205,10 +232,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 		lookat = glm::normalize(glm::vec3(-eye_center.x, 0.0f, -eye_center.z));
 	}
 
-	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
 		eye_center.y += 1.0f;
 	}
-	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
+	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
 		eye_center.y -= 1.0f;
 	}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
