@@ -4,30 +4,13 @@
 
 #include "static_model.h"
 
-StaticModel::StaticModel(const char* modelPath, const char* vertexShader, const char* fragShader, glm::vec3 modelPos, glm::vec3 modelScale, float radians, glm::vec3 axisRot, glm::vec3 lightPosition, glm::vec3 lightIntensity) {
+StaticModel::StaticModel(const char* modelPath) {
     // Load the model
 	if (!loadModel(modelPath)) {
 		return;
 	}
 	// Prepare buffers for rendering
 	bindModel(model);
-	this->radians = radians;
-	this->axisRot = axisRot;
-	this->modelPos = glm::translate(glm::mat4(1.0f), modelPos);
-	this->modelRot = glm::rotate(glm::mat4(1.0f), glm::radians(radians), axisRot);
-	this->modelScale = glm::scale(glm::mat4(1.0f), modelScale);
-	this->modelMatrix = this->modelPos * this->modelScale * this->modelRot;
-    this->lightPosition = lightPosition;
-    this->lightIntensity = lightIntensity;
-	// Load shaders
-	shaderID = LoadShadersFromFile(vertexShader, fragShader);
-	if (shaderID == 0) {
-		cerr << "Failed to load shaders." << endl;
-	}
-	// Get handles for GLSL variables
-	mvpMatrixID = glGetUniformLocation(shaderID, "MVP");
-	lightPositionID = glGetUniformLocation(shaderID, "lightPosition");
-	lightIntensityID = glGetUniformLocation(shaderID, "lightIntensity");
 }
 
 bool StaticModel::loadModel(const char *filename) {
@@ -98,12 +81,13 @@ void StaticModel::bindPrimitive(tinygltf::Model &model, StaticModel::Primitive &
 	// Bind texture
 	if (model.textures.size() > 0) {
       // fixme: Use material's baseColor
-      tinygltf::Texture &tex = model.textures[1];
+	  tinygltf::Material &material = model.materials[prim_gltf.material];
+      tinygltf::Parameter parameter = material.values["baseColorTexture"];
+      tinygltf::Texture &tex = model.textures[parameter.TextureIndex()];
       if (tex.source > -1) {
-        GLuint texid;
-        glGenTextures(1, &texid);
+        glGenTextures(1, &primitive.texID);
         tinygltf::Image &image = model.images[tex.source];
-        glBindTexture(GL_TEXTURE_2D, texid);
+        glBindTexture(GL_TEXTURE_2D, primitive.texID);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -127,11 +111,11 @@ void StaticModel::bindPrimitive(tinygltf::Model &model, StaticModel::Primitive &
         } else {
           // ???
         }
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0,
-                     format, type, &image.image.at(0));
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, format, type, &image.image.at(0));
       }
     }
 }
+
 void StaticModel::bindMesh(tinygltf::Model &model, tinygltf::Mesh &mesh, vector<StaticModel::Primitive> &primitives) {
 	for (size_t i = 0; i < mesh.primitives.size(); i++) {
 		StaticModel::Primitive primitive;
@@ -152,14 +136,12 @@ void StaticModel::drawPrimitives(vector<StaticModel::Primitive> &primitives, tin
 	for (size_t i = 0; i < mesh.primitives.size(); i++) 
 	{
 		glBindVertexArray(primitives[i].vao);
-		
 		// Bind vertex data
 		tinygltf::Accessor positionAccessor = model.accessors[mesh.primitives[i].attributes["POSITION"]];
 		tinygltf::BufferView positionBufferView = model.bufferViews[positionAccessor.bufferView];
 		glEnableVertexAttribArray(0);
 		glBindBuffer(positionBufferView.target, primitives[i].positionVBO);
 		glVertexAttribPointer(0, positionAccessor.type, positionAccessor.componentType, positionAccessor.normalized ? GL_TRUE :GL_FALSE, positionBufferView.byteStride, BUFFER_OFFSET(positionAccessor.byteOffset));
-		
 		// Bind normal data
 		tinygltf::Accessor normalAccessor = model.accessors[mesh.primitives[i].attributes["NORMAL"]];
 		tinygltf::BufferView normalBufferView = model.bufferViews[normalAccessor.bufferView];
@@ -181,30 +163,31 @@ void StaticModel::drawPrimitives(vector<StaticModel::Primitive> &primitives, tin
 		glBindTexture(GL_TEXTURE_2D, primitives[i].texID);
 		// Draw the primitive
 		glDrawElements(GL_TRIANGLES, indexAccessor.count, indexAccessor.componentType, BUFFER_OFFSET(indexAccessor.byteOffset));
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
 		glBindVertexArray(0);
 	}
 }
-void StaticModel::drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, glm::mat4 vp, glm::mat4 parentTransform) {
+
+void StaticModel::drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, glm::mat4 vp, glm::mat4 parentTransform, Shader& shader) {
 	glm::mat4 globalTransform = parentTransform * getNodeTransform(node);
 	if (node.mesh >= 0 && node.mesh < model.meshes.size()) {
-		glUseProgram(shaderID);
-		glm::mat4 mvp = vp * this->modelMatrix * globalTransform;
-		glUniformMatrix4fv(mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
-		glUniform3fv(lightPositionID, 1, &lightPosition[0]);
-		glUniform3fv(lightIntensityID, 1, &lightIntensity[0]);
+		shader.setMat4("model", globalTransform);
 		drawPrimitives(this->primitiveObjects[node.mesh], model, model.meshes[node.mesh]);
 	}
 	for (size_t i = 0; i < node.children.size(); i++) {
-		drawModelNodes(model, model.nodes[node.children[i]], vp, globalTransform);
+		drawModelNodes(model, model.nodes[node.children[i]], vp, globalTransform, shader);
 	}
 }
-void StaticModel::render(glm::mat4 vp) {
+void StaticModel::render(glm::mat4 vp, glm::mat4 transform, Shader& shader) {
 	const tinygltf::Scene &scene = model.scenes[model.defaultScene];
 	for (size_t i = 0; i < scene.nodes.size(); i++) {
 		tinygltf::Node &node = model.nodes[scene.nodes[i]];
-		drawModelNodes(model, node, vp, glm::mat4(1.0f));
+		drawModelNodes(model, node, vp, transform, shader);
 	}
 }
 void StaticModel::cleanup() {
-	glDeleteProgram(shaderID);
+	// glDeleteProgram(this->shadowShaderID);
+	// glDeleteProgram(this->lightingShaderID);
 }

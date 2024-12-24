@@ -20,10 +20,7 @@ class Surface {
 	GLuint indexBufferID; 
 	GLuint uvBufferID;
 	GLuint textureID;
-	// Shader variable IDs
-	GLuint mvpMatrixID;
-	GLuint textureSamplerID;
-	GLuint shaderID;
+    GLuint normalBufferID;
 
     GLfloat vertex_buffer_data[12] = {
         -1.0f, 1.0f, 1.0f, 
@@ -40,6 +37,14 @@ class Surface {
         0.0f, 0.0f 
     };
 
+    GLfloat normal_buffer_data[12] = {
+        // Top face
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+    };
+
     // Index data for two triangles forming the quad
     GLuint index_buffer_data[6] = {
         0, 1, 2,
@@ -47,7 +52,7 @@ class Surface {
     };
 
     Surface(glm::vec3 position, glm::vec3 scale);
-    void render(glm::mat4 cameraMatrix);
+    void render(glm::mat4 cameraMatrix, Shader& shader);
     void cleanup();
 
     private:

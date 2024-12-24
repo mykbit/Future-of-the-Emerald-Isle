@@ -1,7 +1,8 @@
 #include "skybox.h"
 #include "stb_image.h"
 
-Skybox::Skybox(glm::vec3 position, glm::vec3 scale) {
+Skybox::Skybox(glm::vec3 position, glm::vec3 scale, Shader& shader) 
+	: shader(shader) {
 	// Define scale of the building geometry
 	this->position = position;
 	this->scale = scale;
@@ -21,15 +22,9 @@ Skybox::Skybox(glm::vec3 position, glm::vec3 scale) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->indexBufferID);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->index_buffer_data), this->index_buffer_data, GL_STATIC_DRAW);
 	// Create and compile our GLSL program from the shaders
-	this->shaderID = LoadShadersFromFile("../src/shaders/skybox.vert", "../src/shaders/skybox.frag");
-	if (this->shaderID == 0)
-	{
-		std::cerr << "Failed to load shaders." << std::endl;
-	}
+	this->shader = shader;
 	// Get a handle for our "MVP" uniform
-	mvpMatrixID = glGetUniformLocation(shaderID, "MVP");
     textureID = LoadSkyboxTexture("../src/assets/textures/sky.png");
-    textureSamplerID = glGetUniformLocation(shaderID,"textureSampler");
 }
 
 GLuint Skybox::LoadSkyboxTexture(const char *texture_file_path) {
@@ -56,8 +51,6 @@ GLuint Skybox::LoadSkyboxTexture(const char *texture_file_path) {
 }
 
 void Skybox::render(glm::mat4 cameraMatrix) {
-	glUseProgram(this->shaderID);
-
     glBindVertexArray(this->vertexArrayID);
 
 	glEnableVertexAttribArray(0);
@@ -66,14 +59,12 @@ void Skybox::render(glm::mat4 cameraMatrix) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->indexBufferID);
 	// TODO: Model transform 
 	// -----------------------
-    glm::mat4 modelMatrix = glm::mat4();    
+    glm::mat4 modelMatrix = glm::mat4(1.0f);    
     // Scale the box along each axis to make it look like a building
 	modelMatrix = glm::translate(modelMatrix, position);
 	modelMatrix = glm::scale(modelMatrix, scale);
-    // -----------------------
-	// Set model-view-projection matrix
-	glm::mat4 mvp = cameraMatrix * modelMatrix;
-	glUniformMatrix4fv(this->mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
+	shader.setMat4("VP", cameraMatrix);
+	shader.setMat4("model", modelMatrix);
 	// TODO: Enable UV buffer and texture sampler
 	glEnableVertexAttribArray(2);
 	glBindBuffer(GL_ARRAY_BUFFER, this->uvBufferID);
@@ -81,7 +72,7 @@ void Skybox::render(glm::mat4 cameraMatrix) {
 	// Set textureSampler to use texture unit 0
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, this->textureID);
-	glUniform1i(this->textureSamplerID, 0); 
+	shader.setInt("textureSampler", 0);
 	// Draw the box
 	glDrawElements(
 		GL_TRIANGLES,      // mode
@@ -102,5 +93,5 @@ void Skybox::cleanup() {
 	glDeleteVertexArrays(1, &this->vertexArrayID);
 	glDeleteBuffers(1, &this->uvBufferID);
 	glDeleteTextures(1, &this->textureID);
-	glDeleteProgram(this->shaderID);
+	// glDeleteProgram(this->shaderID);
 }

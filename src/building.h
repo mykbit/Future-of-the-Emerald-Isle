@@ -6,6 +6,7 @@
 #include <glm/mat4x4.hpp>
 #include <glad/gl.h>
 #include <iostream>
+#include "glm/detail/type_vec.hpp"
 #include "glm/gtx/transform.hpp"
 
 #include "render/shader.h"
@@ -47,37 +48,42 @@ class Building {
     	-1.0f, -1.0f, 1.0f, 
     };
 
-    GLfloat color_buffer_data[72] = {
-    	// Front, red
-    	1.0f, 0.0f, 0.0f,
-    	1.0f, 0.0f, 0.0f,
-    	1.0f, 0.0f, 0.0f,
-    	1.0f, 0.0f, 0.0f,
-    	// Back, yellow
-    	1.0f, 1.0f, 0.0f,
-    	1.0f, 1.0f, 0.0f,
-    	1.0f, 1.0f, 0.0f,
-    	1.0f, 1.0f, 0.0f,
-    	// Left, green
-    	0.0f, 1.0f, 0.0f, 
-    	0.0f, 1.0f, 0.0f,
-    	0.0f, 1.0f, 0.0f,
-    	0.0f, 1.0f, 0.0f,
-    	// Right, cyan
-    	0.0f, 1.0f, 1.0f, 
-    	0.0f, 1.0f, 1.0f, 
-    	0.0f, 1.0f, 1.0f, 
-    	0.0f, 1.0f, 1.0f, 
-    	// Top, blue
-    	0.0f, 0.0f, 1.0f, 
-    	0.0f, 0.0f, 1.0f,
-    	0.0f, 0.0f, 1.0f,
-    	0.0f, 0.0f, 1.0f,
-    	// Bottom, magenta
-    	1.0f, 0.0f, 1.0f,
-    	1.0f, 0.0f, 1.0f, 
-    	1.0f, 0.0f, 1.0f, 
-    	1.0f, 0.0f, 1.0f,  
+	GLfloat normal_buffer_data[72] = {
+        // Top face
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+
+        // Front face
+        -1.0, 0.0, 0.0,
+        -1.0, 0.0, 0.0,
+        -1.0, 0.0, 0.0,
+        -1.0, 0.0, 0.0,
+
+        // Back face
+        0.0, 0.0, -1.0,
+        0.0, 0.0, -1.0,
+        0.0, 0.0, -1.0,
+        0.0, 0.0, -1.0,
+
+        // Left face
+        1.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+
+        // Right face
+        0.0, 0.0, 1.0,
+        0.0, 0.0, 1.0,
+        0.0, 0.0, 1.0,
+        0.0, 0.0, 1.0,
+
+		// Bottom face
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
     };
 
     GLuint index_buffer_data[36] = {		// 12 triangle faces of a box
@@ -135,14 +141,18 @@ class Building {
     GLuint vertexBufferID; 
     GLuint indexBufferID; 
     GLuint colorBufferID;
+	GLuint normalBufferID;
     GLuint uvBufferID;
     GLuint textureID;
     // Shader variable IDs
-    GLuint mvpMatrixID;
+    GLuint modelMatrixID;
+	GLuint vpMatrixID;
     GLuint textureSamplerID;
     GLuint shaderID;
+	GLuint lightPositionID;
+	GLuint lightIntensityID;
 
-    Building();
+    Building(GLuint& shaderID);
     void render(glm::mat4 cameraMatrix, glm::mat4 transform);
     void cleanup();
 

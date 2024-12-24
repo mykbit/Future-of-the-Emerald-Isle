@@ -21,10 +21,12 @@ class Skybox {
 	GLuint colorBufferID;
 	GLuint uvBufferID;
 	GLuint textureID;
+	GLuint normalBufferID;
 	// Shader variable IDs
-	GLuint mvpMatrixID;
+	GLuint vpMatrixID;
+	GLuint modelMatrixID;
 	GLuint textureSamplerID;
-	GLuint shaderID;
+	Shader& shader;
 
     // Buffers
     GLfloat vertex_buffer_data[72] = {
@@ -60,6 +62,44 @@ class Skybox {
     	1.0f, -1.0f, -1.0f, 
     	1.0f, -1.0f, 1.0f, 
     	-1.0f, -1.0f, 1.0f, 
+    };
+
+	GLfloat normal_buffer_data[72] = {
+        // Floor 
+        0.0, 1.0, 0.0,   
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+    
+        // Ceiling
+        0.0, -1.0, 0.0,   
+        0.0, -1.0, 0.0,
+        0.0, -1.0, 0.0,
+        0.0, -1.0, 0.0,
+    
+        // Left wall 
+        1.0, 0.0, 0.0,   
+        1.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+    
+        // Right wall 
+        -1.0, 0.0, 0.0,   
+        -1.0, 0.0, 0.0,
+        -1.0, 0.0, 0.0,
+        -1.0, 0.0, 0.0,
+    
+        // Back wall 
+        0.0, 0.0, 1.0,   
+        0.0, 0.0, 1.0,
+        0.0, 0.0, 1.0,
+        0.0, 0.0, 1.0,
+
+		// Front wall
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
     };
 
     GLuint index_buffer_data[36] = {		// 12 triangle faces of a box
@@ -112,7 +152,7 @@ class Skybox {
       	1.0f / 4 * 1, 1.0f / 3 * 0,
     };
 
-    Skybox(glm::vec3 position, glm::vec3 scale);
+    Skybox(glm::vec3 position, glm::vec3 scale, Shader& shader);
     void render(glm::mat4 cameraMatrix);
     void cleanup();
 

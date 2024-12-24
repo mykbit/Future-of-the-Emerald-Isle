@@ -20,17 +20,11 @@ Surface::Surface(glm::vec3 position, glm::vec3 scale) {
     glGenBuffers(1, &this->uvBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, this->uvBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(this->uv_buffer_data), this->uv_buffer_data, GL_STATIC_DRAW);
-
-    // Create and compile our GLSL program from the shaders
-    this->shaderID = LoadShadersFromFile("../src/shaders/simple.vert", "../src/shaders/simple.frag");
-    if (this->shaderID == 0)
-    {
-        std::cerr << "Failed to load shaders." << std::endl;
-    }
-    // Get a handle for our "MVP" uniform
-    mvpMatrixID = glGetUniformLocation(shaderID, "MVP");
-    textureID = LoadTextureTileBox("../src/assets/textures/surface.jpg");
-    textureSamplerID = glGetUniformLocation(shaderID,"textureSampler");
+    // Create a normal buffer object to store the normal data
+    glGenBuffers(1, &this->normalBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, this->normalBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(this->normal_buffer_data), this->normal_buffer_data, GL_STATIC_DRAW);
+    this->textureID = LoadTextureTileBox("../src/assets/textures/surface.jpg");
 }
 
 GLuint Surface::LoadTextureTileBox(const char *texture_file_path) {
@@ -57,9 +51,7 @@ GLuint Surface::LoadTextureTileBox(const char *texture_file_path) {
     return texture;
 }
 
-void Surface::render(glm::mat4 cameraMatrix) {
-    glUseProgram(this->shaderID);
-
+void Surface::render(glm::mat4 cameraMatrix, Shader& shader) {
     glBindVertexArray(this->vertexArrayID);
 
 	glEnableVertexAttribArray(0);
@@ -75,15 +67,18 @@ void Surface::render(glm::mat4 cameraMatrix) {
     // -----------------------
 	// Set model-view-projection matrix
 	glm::mat4 mvp = cameraMatrix * modelMatrix;
-	glUniformMatrix4fv(this->mvpMatrixID, 1, GL_FALSE, &mvp[0][0]);
+    shader.setMat4("model", modelMatrix);
+
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, this->normalBufferID);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	// TODO: Enable UV buffer and texture sampler
 	glEnableVertexAttribArray(2);
 	glBindBuffer(GL_ARRAY_BUFFER, this->uvBufferID);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
 	// Set textureSampler to use texture unit 0
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, this->textureID);
-	glUniform1i(this->textureSamplerID, 0); 
+	glBindTexture(GL_TEXTURE_2D, this->textureID); 
 	// Draw the box
 	glDrawElements(
 		GL_TRIANGLES,      // mode
@@ -104,7 +99,6 @@ void Surface::cleanup() {
     glDeleteVertexArrays(1, &vertexArrayID);
     glDeleteBuffers(1, &uvBufferID);
     glDeleteTextures(1, &textureID);
-    glDeleteProgram(shaderID);
 }
 
 
