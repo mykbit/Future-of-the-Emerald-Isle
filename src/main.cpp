@@ -18,8 +18,8 @@ using namespace std;
 static GLFWwindow *window;
 static int windowWidth = 1024;
 static int windowHeight = 768;
-static int shadowWidth = 1024;
-static int shadowHeight = 1024;
+static int shadowWidth = 2048;
+static int shadowHeight = 2048;
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
 static void configureDepthMapFBO();
@@ -27,7 +27,7 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 // Camera
 static float cameraSpeed = 10.0f;
-static glm::vec3 eye_center(0.0f, 40.0f, -150.0f);
+static glm::vec3 eye_center(0.0f, 150.0f, -800.0f);
 static glm::vec3 lookat(0.0f, 0.0f, -1.0f);
 static glm::vec3 up(0.0f, 1.0f, 0.0f);
 static float FoV = 45.0f;
@@ -35,14 +35,14 @@ static float zNear = 0.1f;
 static float zFar = 20000.0f; 
 
 // Lighting  
-static glm::vec3 lightIntensity(5e1f, 5e1f, 5e1f);
-static glm::vec3 lightPosition(-800.0f, 300.0f, 800.0f);
+static glm::vec3 lightIntensity(2.0f, 2.0f, 2.0f);
+static glm::vec3 lightPosition(-4000.0f, 800.0f, 5000.0f);
 // static glm::vec3 lightPosition(-275.0f, 500.0f, -275.0f);
-static glm::vec3 lightLookat(0.0f, 0.0f, 0.0f);
+static glm::vec3 lightLookat(0.0f, -1.0f, 0.0f);
 static glm::vec3 lightUp(0.0f, 0.0f, 1.0f);
 static float depthFoV = 75.0f; // Maybe fix 
 static float depthNear = 0.1f;
-static float depthFar = 5000.0f; 
+static float depthFar = 10000.0f; 
 
 GLuint lightPositionID;
 GLuint lightIntensityID;
@@ -100,44 +100,65 @@ int main(void)
 	Shader skyboxShader = Shader("../src/shaders/skybox.vert", "../src/shaders/skybox.frag");
 
 	configureDepthMapFBO();
-	lightingShader.use();
-	lightingShader.setInt("diffuseTexture", 0);
-	lightingShader.setInt("depthMap", 1);
+	
 
-	// Our 3D character
-	StaticModel car = StaticModel("../src/assets/covered_car/covered_car_1k.gltf");
-	glm::mat4 modelTransform = glm::mat4(1.0f);
-	modelTransform = glm::translate(modelTransform, glm::vec3(0, 1, 0));
-	modelTransform = glm::scale(modelTransform, glm::vec3(15, 15, 15));
-	modelTransform = glm::rotate(modelTransform, glm::radians(45.0f), glm::vec3(0, 1, 0));
+	// Cars
+	unsigned int amount = 25;
+	glm::mat4* carModelMatrices = new glm::mat4[amount];
+	float radius = 150.0;
+    float offset = 25.0f;
+	for (int i = 0; i < 25; i++)
+	{
+		glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(i*50, 1, 0));\
+		model = glm::scale(model, glm::vec3(20.0f, 20.0f, 20.0f));
 
+        // 4. now add to list of matrices
+        carModelMatrices[i] = model;
+	}
+	StaticModel car = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", carModelMatrices, amount);
 
+	// Skybox
 	Skybox skybox = Skybox(glm::vec3(0, 0, 0), glm::vec3(-10000, -10000, -10000), skyboxShader);
 
-	Surface surface = Surface(glm::vec3(0, 0, 0), glm::vec3(10000, 1, 10000));
+	// Surface
+	amount = 1;
+	glm::mat4* surfaceModelMatrices = new glm::mat4[amount];
+	glm::mat4 surfaceModel = glm::mat4(1.0f);
+	surfaceModel = glm::translate(surfaceModel, glm::vec3(0, 0, 0));
+	surfaceModel = glm::scale(surfaceModel, glm::vec3(10000, 1, 10000));
+	surfaceModelMatrices[0] = surfaceModel;
+	Surface surface = Surface(surfaceModelMatrices, amount);
 
-	// Building building = Building(shaderID);
+	// Debug light cube
+	glm::mat4* lightCubeModelMatrices = new glm::mat4[amount];
+	glm::mat4 lightCubeModel = glm::mat4(1.0f);
+	lightCubeModel = glm::translate(lightCubeModel, lightPosition);
+	lightCubeModel = glm::scale(lightCubeModel, glm::vec3(100, 100, 100));
+	lightCubeModelMatrices[0] = lightCubeModel;
+	StaticModel lightCube = StaticModel("../src/assets/cube/Cube.gltf", lightCubeModelMatrices, amount);
 
-	std::vector<glm::mat4> buildingTransforms;
-	float building_spacing = 200.0f;
+	// Buildings
+	amount = 36;
+	glm::mat4* buildingModelMatrices = new glm::mat4[amount];
+	float building_spacing = 300.0f;
 	int min_x = 60;
 	int max_x = 70;
 	int min_y = 160;
 	int max_y = 200;
 	std::random_device rd;
     std::mt19937 engine(rd());
-
-	for (int i = -2; i < 2; i++) {
-		for (int j = -2; j < 2; j++) {
+	for (int i = 0; i < amount / 6; i++) {
+		for (int j = 0; j < 6; j++) {
 			int x = std::uniform_int_distribution<int>(min_x, max_x)(engine);
 			int y = std::uniform_int_distribution<int>(min_y, max_y)(engine);
-
-			glm::mat4 transform = glm::mat4(1.0f);
-			transform = glm::translate(transform, glm::vec3(i * building_spacing, y, j * building_spacing));
-			transform = glm::scale(transform, glm::vec3(x, y, 60));
-			buildingTransforms.push_back(transform);
+			glm::mat4 model = glm::mat4(1.0f);
+			model = glm::translate(model, glm::vec3(i * building_spacing, y, j * building_spacing));
+			model = glm::scale(model, glm::vec3(x, y, 48));
+			buildingModelMatrices[i * 6 + j] = model;
 		}
 	}
+	Building building = Building(buildingModelMatrices, amount);
 
 	// Camera setup
   	glm::mat4 viewMatrix, projectionMatrix;
@@ -186,10 +207,11 @@ int main(void)
 		depthShader.setFloat("far_plane", depthFar);
 		depthShader.setVec3("lightPos", lightPosition);
 		surface.render(vp, depthShader);
-		car.render(vp, modelTransform, depthShader);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		// car.render(vp, depthShader);
+		building.render(vp, depthShader);
 		glCullFace(GL_BACK);
-
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		
 		// 2. render scene as normal using the generated depth/shadow map
 		// --------------------------------------------------------------
 		glViewport(0, 0, windowWidth*2, windowHeight*2);
@@ -198,14 +220,18 @@ int main(void)
 		lightingShader.setMat4("VP", vp);
 		lightingShader.setVec3("viewPos", eye_center);
 		lightingShader.setVec3("lightPos", lightPosition);
-		// lightingShader.setVec3("lightIntensity", lightIntensity);
+		lightingShader.setVec3("lightIntensity", lightIntensity);
 		lightingShader.setInt("shadows", shadows);
 		lightingShader.setFloat("far_plane", depthFar);
 		lightingShader.setInt("reverse_normals", 0);
+		lightingShader.setInt("diffuseTexture", 0);
+		lightingShader.setInt("depthMap", 1);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 		surface.render(vp, lightingShader);
-		car.render(vp, modelTransform, lightingShader);
+		// car.render(vp, lightingShader);
+		building.render(vp, lightingShader);
+		lightCube.render(vp, lightingShader);
 
 		skyboxShader.use();
 		skybox.render(vp);
@@ -250,7 +276,7 @@ static void configureDepthMapFBO() {
 	glGenTextures(1, &depthCubemap);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 	for (unsigned int i = 0; i < 6; i++) {
-	    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT24, 
+	    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
 	                 shadowWidth, shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	}
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -329,10 +355,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-		eye_center.y += 1.0f;
+		eye_center.y += 10.0f;
 	}
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-		eye_center.y -= 1.0f;
+		eye_center.y -= 10.0f;
 	}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, GL_TRUE);

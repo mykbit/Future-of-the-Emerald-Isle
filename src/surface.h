@@ -12,8 +12,8 @@
 
 class Surface {
     public:
-    glm::vec3 position;
-    glm::vec3 scale;
+    glm::mat4* modelMatrices;
+    int amount;
     // OpenGL buffers
 	GLuint vertexArrayID; 
 	GLuint vertexBufferID; 
@@ -21,6 +21,7 @@ class Surface {
 	GLuint uvBufferID;
 	GLuint textureID;
     GLuint normalBufferID;
+    GLuint transformBufferID;
 
     GLfloat vertex_buffer_data[12] = {
         -1.0f, 1.0f, 1.0f, 
@@ -31,9 +32,9 @@ class Surface {
 
     // UV coordinates for the texture
     GLfloat uv_buffer_data[8] = {
-        1.0f, 0.0f,
-        1.0f, 1.0f,
         0.0f, 1.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
         0.0f, 0.0f 
     };
 
@@ -51,7 +52,7 @@ class Surface {
         0, 2, 3 
     };
 
-    Surface(glm::vec3 position, glm::vec3 scale);
+    Surface(glm::mat4* modelMatrices, int amount);
     void render(glm::mat4 cameraMatrix, Shader& shader);
     void cleanup();
 

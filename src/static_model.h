@@ -18,12 +18,8 @@ using namespace std;
 class StaticModel {
     public:
         // Shader variable IDs
-        GLuint modelMatrixID;
-        GLuint vpMatrixID;
-        GLuint lightPositionID;
-        GLuint lightIntensityID;
-        float shadowMapWidth;
-        float shadowMapHeight;
+        glm::mat4* modelMatrices;
+        int amount;
 
         // Model data
         tinygltf::Model model;
@@ -39,10 +35,11 @@ class StaticModel {
             GLuint indexVBO;
             GLuint texcoordVBO;
             GLuint texID;
+            GLuint transformVBO;
         };
         vector<vector<Primitive>> primitiveObjects;
 
-        StaticModel(const char* modelPath);
+        StaticModel(const char* modelPath, glm::mat4* modelMatrices, int amount);
         bool loadModel(const char *filename);
         glm::mat4 getNodeTransform(const tinygltf::Node& node);
         void bindPrimitive(tinygltf::Model &model, Primitive &primitive, tinygltf::Primitive &prim_gltf);
@@ -51,7 +48,7 @@ class StaticModel {
         void drawPrimitives(vector<Primitive> &primitives, tinygltf::Model &model, tinygltf::Mesh &mesh);
         void drawDepthPrimitives(vector<Primitive> &primitives, tinygltf::Model &model, tinygltf::Mesh &mesh);
         void drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, glm::mat4 vp, glm::mat4 parentTransform, Shader& shader);
-        void render(glm::mat4 cameraMatrix, glm::mat4 transform, Shader& shader);
+        void render(glm::mat4 cameraMatrix, Shader& shader);
         void cleanup();
 };
 

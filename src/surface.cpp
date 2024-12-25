@@ -1,10 +1,10 @@
 #include "surface.h"
 #include "stb_image.h"
 
-Surface::Surface(glm::vec3 position, glm::vec3 scale) {
+Surface::Surface(glm::mat4* modelMatrices, int amount) {
     // Define scale of the building geometry
-    this->position = position;
-    this->scale = scale;
+    this->modelMatrices = modelMatrices;
+    this->amount = amount;
     // Create a vertex array object
     glGenVertexArrays(1, &this->vertexArrayID);
     glBindVertexArray(this->vertexArrayID);
@@ -24,6 +24,10 @@ Surface::Surface(glm::vec3 position, glm::vec3 scale) {
     glGenBuffers(1, &this->normalBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, this->normalBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(this->normal_buffer_data), this->normal_buffer_data, GL_STATIC_DRAW);
+    // Create a transform buffer object to store the model matrices
+    glGenBuffers(1, &this->transformBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, this->transformBufferID);
+    glBufferData(GL_ARRAY_BUFFER, this->amount * sizeof(glm::mat4), &this->modelMatrices[0], GL_STATIC_DRAW);
     this->textureID = LoadTextureTileBox("../src/assets/textures/surface.jpg");
 }
 
@@ -60,15 +64,7 @@ void Surface::render(glm::mat4 cameraMatrix, Shader& shader) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->indexBufferID);
 	// TODO: Model transform 
 	// -----------------------
-    glm::mat4 modelMatrix = glm::mat4();    
-    // Scale the box along each axis to make it look like a building
-	modelMatrix = glm::translate(modelMatrix, position);
-	modelMatrix = glm::scale(modelMatrix, scale);
-    // -----------------------
-	// Set model-view-projection matrix
-	glm::mat4 mvp = cameraMatrix * modelMatrix;
-    shader.setMat4("model", modelMatrix);
-
+    shader.setMat4("model", glm::mat4(1.0f));
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, this->normalBufferID);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -76,20 +72,38 @@ void Surface::render(glm::mat4 cameraMatrix, Shader& shader) {
 	glEnableVertexAttribArray(2);
 	glBindBuffer(GL_ARRAY_BUFFER, this->uvBufferID);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    // Bind transform data
+    glBindBuffer(GL_ARRAY_BUFFER, this->transformBufferID);
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)0);
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4)));
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
+    glVertexAttribDivisor(3, 1);
+    glVertexAttribDivisor(4, 1);
+    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
 	// Set textureSampler to use texture unit 0
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, this->textureID); 
 	// Draw the box
-	glDrawElements(
+	glDrawElementsInstanced(
 		GL_TRIANGLES,      // mode
 		6,    			   // number of indices
 		GL_UNSIGNED_INT,   // type
-		(void*)0           // element array buffer offset
+		(void*)0,           // element array buffer offset
+        this->amount
 	);
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
-
+    glDisableVertexAttribArray(3);
+    glDisableVertexAttribArray(4);
+    glDisableVertexAttribArray(5);
+    glDisableVertexAttribArray(6);
     glBindVertexArray(0);
 }
 

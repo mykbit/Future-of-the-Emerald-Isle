@@ -1,14 +1,18 @@
+#include "glm/detail/type_mat.hpp"
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include "static_model.h"
 
-StaticModel::StaticModel(const char* modelPath) {
+StaticModel::StaticModel(const char* modelPath, glm::mat4* modelMatrices, int amount) {
     // Load the model
 	if (!loadModel(modelPath)) {
 		return;
 	}
+	this->modelMatrices = modelMatrices;
+	this->amount = amount;
+
 	// Prepare buffers for rendering
 	bindModel(model);
 }
@@ -78,41 +82,45 @@ void StaticModel::bindPrimitive(tinygltf::Model &model, StaticModel::Primitive &
 	glGenBuffers(1, &primitive.indexVBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, primitive.indexVBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferView.byteLength, &model.buffers[indexBufferView.buffer].data.at(0) +indexBufferView.byteOffset, GL_STATIC_DRAW);
+	// Bind transform data
+	glGenBuffers(1, &primitive.transformVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, primitive.transformVBO);
+	glBufferData(GL_ARRAY_BUFFER, this->amount * sizeof(glm::mat4), &this->modelMatrices[0], GL_STATIC_DRAW);
 	// Bind texture
 	if (model.textures.size() > 0) {
-      // fixme: Use material's baseColor
-	  tinygltf::Material &material = model.materials[prim_gltf.material];
-      tinygltf::Parameter parameter = material.values["baseColorTexture"];
-      tinygltf::Texture &tex = model.textures[parameter.TextureIndex()];
-      if (tex.source > -1) {
-        glGenTextures(1, &primitive.texID);
-        tinygltf::Image &image = model.images[tex.source];
-        glBindTexture(GL_TEXTURE_2D, primitive.texID);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        GLenum format = GL_RGBA;
-        if (image.component == 1) {
-          format = GL_RED;
-        } else if (image.component == 2) {
-          format = GL_RG;
-        } else if (image.component == 3) {
-          format = GL_RGB;
-        } else {
-          // ???
-        }
-        GLenum type = GL_UNSIGNED_BYTE;
-        if (image.bits == 8) {
-          // ok
-        } else if (image.bits == 16) {
-          type = GL_UNSIGNED_SHORT;
-        } else {
-          // ???
-        }
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, format, type, &image.image.at(0));
-      }
+      	// fixme: Use material's baseColor
+	  	tinygltf::Material &material = model.materials[prim_gltf.material];
+      	tinygltf::Parameter parameter = material.values["baseColorTexture"];
+      	tinygltf::Texture &tex = model.textures[parameter.TextureIndex()];
+      	if (tex.source > -1) {
+      	  	glGenTextures(1, &primitive.texID);
+      	  	tinygltf::Image &image = model.images[tex.source];
+      	  	glBindTexture(GL_TEXTURE_2D, primitive.texID);
+      	  	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      	  	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      	  	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      	  	GLenum format = GL_RGBA;
+      	  	if (image.component == 1) {
+      	  	  format = GL_RED;
+      	  	} else if (image.component == 2) {
+      	  	  format = GL_RG;
+      	  	} else if (image.component == 3) {
+      	  	  format = GL_RGB;
+      	  	} else {
+      	  	  // ???
+      	  	}
+      	  	GLenum type = GL_UNSIGNED_BYTE;
+      	  	if (image.bits == 8) {
+      	  	  // ok
+      	  	} else if (image.bits == 16) {
+      	  	  type = GL_UNSIGNED_SHORT;
+      	  	} else {
+      	  	  // ???
+      	  	}
+      	  	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, format, type, &image.image.at(0));
+      	}
     }
 }
 
@@ -158,14 +166,32 @@ void StaticModel::drawPrimitives(vector<StaticModel::Primitive> &primitives, tin
 		tinygltf::Accessor indexAccessor = model.accessors[mesh.primitives[i].indices];
 		tinygltf::BufferView indexBufferView = model.bufferViews[indexAccessor.bufferView];
 		glBindBuffer(indexBufferView.target, primitives[i].indexVBO);
+		// Bind transform data
+		glBindBuffer(GL_ARRAY_BUFFER, primitives[i].transformVBO);
+		glEnableVertexAttribArray(3);
+		glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)0);
+		glEnableVertexAttribArray(4);
+		glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4)));
+		glEnableVertexAttribArray(5);
+		glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
+		glEnableVertexAttribArray(6);
+		glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
+		glVertexAttribDivisor(3, 1);
+		glVertexAttribDivisor(4, 1);
+		glVertexAttribDivisor(5, 1);
+		glVertexAttribDivisor(6, 1);
 		// Bind texture
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, primitives[i].texID);
 		// Draw the primitive
-		glDrawElements(GL_TRIANGLES, indexAccessor.count, indexAccessor.componentType, BUFFER_OFFSET(indexAccessor.byteOffset));
+		glDrawElementsInstanced(GL_TRIANGLES, indexAccessor.count, indexAccessor.componentType, BUFFER_OFFSET(indexAccessor.byteOffset), this->amount);
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(3);
+		glDisableVertexAttribArray(4);
+		glDisableVertexAttribArray(5);
+		glDisableVertexAttribArray(6);
 		glBindVertexArray(0);
 	}
 }
@@ -180,11 +206,11 @@ void StaticModel::drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, g
 		drawModelNodes(model, model.nodes[node.children[i]], vp, globalTransform, shader);
 	}
 }
-void StaticModel::render(glm::mat4 vp, glm::mat4 transform, Shader& shader) {
+void StaticModel::render(glm::mat4 vp, Shader& shader) {
 	const tinygltf::Scene &scene = model.scenes[model.defaultScene];
 	for (size_t i = 0; i < scene.nodes.size(); i++) {
 		tinygltf::Node &node = model.nodes[scene.nodes[i]];
-		drawModelNodes(model, node, vp, transform, shader);
+		drawModelNodes(model, node, vp, glm::mat4(1.0f), shader);
 	}
 }
 void StaticModel::cleanup() {

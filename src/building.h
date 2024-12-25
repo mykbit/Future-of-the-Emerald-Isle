@@ -49,42 +49,37 @@ class Building {
     };
 
 	GLfloat normal_buffer_data[72] = {
-        // Top face
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-
-        // Front face
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-
-        // Back face
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-
-        // Left face
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-
-        // Right face
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-
-		// Bottom face
-		0.0, -1.0, 0.0,
-		0.0, -1.0, 0.0,
-		0.0, -1.0, 0.0,
-		0.0, -1.0, 0.0,
-    };
+	    // Front face
+	    0.0, 0.0, 1.0,
+	    0.0, 0.0, 1.0,
+	    0.0, 0.0, 1.0,
+	    0.0, 0.0, 1.0,
+	    // Back face
+	    0.0, 0.0, -1.0,
+	    0.0, 0.0, -1.0,
+	    0.0, 0.0, -1.0,
+	    0.0, 0.0, -1.0,
+	    // Left face
+	    -1.0, 0.0, 0.0,
+	    -1.0, 0.0, 0.0,
+	    -1.0, 0.0, 0.0,
+	    -1.0, 0.0, 0.0,
+	    // Right face
+	    1.0, 0.0, 0.0,
+	    1.0, 0.0, 0.0,
+	    1.0, 0.0, 0.0,
+	    1.0, 0.0, 0.0,
+	    // Top face
+	    0.0, 1.0, 0.0,
+	    0.0, 1.0, 0.0,
+	    0.0, 1.0, 0.0,
+	    0.0, 1.0, 0.0,
+	    // Bottom face
+	    0.0, -1.0, 0.0,
+	    0.0, -1.0, 0.0,
+	    0.0, -1.0, 0.0,
+	    0.0, -1.0, 0.0,
+	};
 
     GLuint index_buffer_data[36] = {		// 12 triangle faces of a box
     	0, 1, 2, 	
@@ -144,16 +139,13 @@ class Building {
 	GLuint normalBufferID;
     GLuint uvBufferID;
     GLuint textureID;
-    // Shader variable IDs
-    GLuint modelMatrixID;
-	GLuint vpMatrixID;
-    GLuint textureSamplerID;
-    GLuint shaderID;
-	GLuint lightPositionID;
-	GLuint lightIntensityID;
+	GLuint transformBufferID;
 
-    Building(GLuint& shaderID);
-    void render(glm::mat4 cameraMatrix, glm::mat4 transform);
+	glm::mat4* modelMatrices;
+	int amount;
+
+    Building(glm::mat4* modelMatrices, int amount);
+    void render(glm::mat4 cameraMatrix, Shader& shader);
     void cleanup();
 
     private:

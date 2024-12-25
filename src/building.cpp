@@ -2,7 +2,9 @@
 #include "glm/detail/type_mat.hpp"
 #include "stb_image.h"
 
-Building::Building(GLuint& shaderID) {
+Building::Building(glm::mat4* modelMatrices, int amount) {
+    this->modelMatrices = modelMatrices;
+    this->amount = amount;
     // Create a vertex array object
     glGenVertexArrays(1, &this->vertexArrayID);
     glBindVertexArray(this->vertexArrayID);
@@ -23,12 +25,12 @@ Building::Building(GLuint& shaderID) {
     glGenBuffers(1, &this->normalBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, this->normalBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(this->normal_buffer_data), this->normal_buffer_data, GL_STATIC_DRAW);
+    // Create a transform buffer object to store the model matrices
+    glGenBuffers(1, &this->transformBufferID);  
+    glBindBuffer(GL_ARRAY_BUFFER, this->transformBufferID);
+    glBufferData(GL_ARRAY_BUFFER, this->amount * sizeof(glm::mat4), &this->modelMatrices[0], GL_STATIC_DRAW);
     // Get a handle for our "MVP" uniform
-    this->shaderID = shaderID;
-    this->modelMatrixID = glGetUniformLocation(shaderID, "model");
-    this->vpMatrixID = glGetUniformLocation(shaderID, "VP");
     this->textureID = LoadTextureTileBox("../src/assets/textures/building.jpg");
-    this->textureSamplerID = glGetUniformLocation(shaderID,"textureSampler");
 }
 
 GLuint Building::LoadTextureTileBox(const char *texture_file_path) {
@@ -55,7 +57,7 @@ GLuint Building::LoadTextureTileBox(const char *texture_file_path) {
     return texture;
 }
 
-void Building::render(glm::mat4 cameraMatrix, glm::mat4 transform) {
+void Building::render(glm::mat4 cameraMatrix, Shader& shader) {
     glBindVertexArray(this->vertexArrayID);
 
 	glEnableVertexAttribArray(0);
@@ -70,25 +72,39 @@ void Building::render(glm::mat4 cameraMatrix, glm::mat4 transform) {
 	glEnableVertexAttribArray(2);
 	glBindBuffer(GL_ARRAY_BUFFER, this->uvBufferID);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    // Bind transform data
+    glBindBuffer(GL_ARRAY_BUFFER, this->transformBufferID);
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)0);
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4)));
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
+    glVertexAttribDivisor(3, 1);
+    glVertexAttribDivisor(4, 1);
+    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
 	// Set textureSampler to use texture unit 0
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, this->textureID);
-	glUniform1i(this->textureSamplerID, 0); 
-
-    glm::mat4 mvp = cameraMatrix * transform;
-	glUniformMatrix4fv(this->vpMatrixID, 1, GL_FALSE, &cameraMatrix[0][0]);
-    glUniformMatrix4fv(this->modelMatrixID, 1, GL_FALSE, &transform[0][0]);
+	shader.setMat4("model", glm::mat4(1.0f));
 	// Draw the box
-	glDrawElements(
+	glDrawElementsInstanced(
 		GL_TRIANGLES,      // mode
-		sizeof(this->index_buffer_data)/sizeof(this->index_buffer_data[0]),    			   // number of indices
+		36,    			   // number of indices
 		GL_UNSIGNED_INT,   // type
-		(void*)0           // element array buffer offset
+		(void*)0,           // element array buffer offset
+        this->amount
 	);
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
-
+    glDisableVertexAttribArray(3);
+    glDisableVertexAttribArray(4);
+    glDisableVertexAttribArray(5);
+    glDisableVertexAttribArray(6);
     glBindVertexArray(0);
 }
 
@@ -98,5 +114,5 @@ void Building::cleanup() {
     glDeleteVertexArrays(1, &vertexArrayID);
     glDeleteBuffers(1, &uvBufferID);
     glDeleteTextures(1, &textureID);
-    glDeleteProgram(shaderID);
+    // glDeleteProgram(shaderID);
 }
