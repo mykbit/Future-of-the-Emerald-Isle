@@ -33,7 +33,7 @@ float ShadowCalculation(vec3 fragPos)
     float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;  
 
     // display closestDepth as debug (to visualize depth cubemap) / Displays depthMap as grayscale
-    // FragColor = vec4(vec3(closestDepth / far_plane), 1.0);    
+    // FragColor = vec4(vec3(closestDepth / far_plane), 1.0);
         
     return shadow;
 }
@@ -48,7 +48,7 @@ void main()
     // diffuse
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(lightDir, normal), 0.0);
-    vec3 diffuse = diff * lightColor;
+    vec3 diffuse = diff * lightColor * lightIntensity;
     // specular
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, normal);

@@ -97,10 +97,10 @@ void StaticModel::bindPrimitive(tinygltf::Model &model, StaticModel::Primitive &
       	  	tinygltf::Image &image = model.images[tex.source];
       	  	glBindTexture(GL_TEXTURE_2D, primitive.texID);
       	  	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      	  	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      	  	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      	  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+      		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
       	  	GLenum format = GL_RGBA;
       	  	if (image.component == 1) {
       	  	  format = GL_RED;
@@ -120,6 +120,7 @@ void StaticModel::bindPrimitive(tinygltf::Model &model, StaticModel::Primitive &
       	  	  // ???
       	  	}
       	  	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, format, type, &image.image.at(0));
+			glGenerateMipmap(GL_TEXTURE_2D);
       	}
     }
 }
@@ -206,14 +207,11 @@ void StaticModel::drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, g
 		drawModelNodes(model, model.nodes[node.children[i]], vp, globalTransform, shader);
 	}
 }
+
 void StaticModel::render(glm::mat4 vp, Shader& shader) {
 	const tinygltf::Scene &scene = model.scenes[model.defaultScene];
 	for (size_t i = 0; i < scene.nodes.size(); i++) {
 		tinygltf::Node &node = model.nodes[scene.nodes[i]];
 		drawModelNodes(model, node, vp, glm::mat4(1.0f), shader);
 	}
-}
-void StaticModel::cleanup() {
-	// glDeleteProgram(this->shadowShaderID);
-	// glDeleteProgram(this->lightingShaderID);
 }

@@ -18,15 +18,20 @@ using namespace std;
 static GLFWwindow *window;
 static int windowWidth = 1024;
 static int windowHeight = 768;
-static int shadowWidth = 2048;
-static int shadowHeight = 2048;
+static int shadowWidth = 16384;
+static int shadowHeight = 16384;
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
 static void configureDepthMapFBO();
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+static void setupCarModelMatrices(glm::mat4* modelMatrices, int amount);
+static void setupBuildingModelMatrices(glm::mat4* modelMatrices, int amount);
+static void setupTreeModelMatrices(glm::mat4* modelMatrices, int amount);
+static void setupRoadBlockModelMatrices(glm::mat4* modelMatrices, int amount);
+static void setupGrassModelMatrices(glm::mat4* modelMatrices, int amount);
 
 // Camera
-static float cameraSpeed = 10.0f;
+static float cameraSpeed = 100.0f;
 static glm::vec3 eye_center(0.0f, 150.0f, -800.0f);
 static glm::vec3 lookat(0.0f, 0.0f, -1.0f);
 static glm::vec3 up(0.0f, 1.0f, 0.0f);
@@ -36,13 +41,13 @@ static float zFar = 20000.0f;
 
 // Lighting  
 static glm::vec3 lightIntensity(2.0f, 2.0f, 2.0f);
-static glm::vec3 lightPosition(-4000.0f, 800.0f, 5000.0f);
+static glm::vec3 lightPosition(-7700.0f, 1400.0f, 10000.0f);
 // static glm::vec3 lightPosition(-275.0f, 500.0f, -275.0f);
 static glm::vec3 lightLookat(0.0f, -1.0f, 0.0f);
 static glm::vec3 lightUp(0.0f, 0.0f, 1.0f);
 static float depthFoV = 75.0f; // Maybe fix 
 static float depthNear = 0.1f;
-static float depthFar = 10000.0f; 
+static float depthFar = 20000.0f;
 
 GLuint lightPositionID;
 GLuint lightIntensityID;
@@ -75,7 +80,6 @@ int main(void)
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
@@ -98,71 +102,103 @@ int main(void)
 	Shader depthShader = Shader("../src/shaders/depth.vert", "../src/shaders/depth.frag", "../src/shaders/depth.geom");
 	Shader lightingShader = Shader("../src/shaders/lighting.vert", "../src/shaders/lighting.frag");
 	Shader skyboxShader = Shader("../src/shaders/skybox.vert", "../src/shaders/skybox.frag");
-
 	configureDepthMapFBO();
-	
-
-	// Cars
-	unsigned int amount = 25;
-	glm::mat4* carModelMatrices = new glm::mat4[amount];
-	float radius = 150.0;
-    float offset = 25.0f;
-	for (int i = 0; i < 25; i++)
-	{
-		glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(i*50, 1, 0));\
-		model = glm::scale(model, glm::vec3(20.0f, 20.0f, 20.0f));
-
-        // 4. now add to list of matrices
-        carModelMatrices[i] = model;
-	}
-	StaticModel car = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", carModelMatrices, amount);
 
 	// Skybox
 	Skybox skybox = Skybox(glm::vec3(0, 0, 0), glm::vec3(-10000, -10000, -10000), skyboxShader);
 
 	// Surface
-	amount = 1;
+	int amount = 1;
 	glm::mat4* surfaceModelMatrices = new glm::mat4[amount];
 	glm::mat4 surfaceModel = glm::mat4(1.0f);
 	surfaceModel = glm::translate(surfaceModel, glm::vec3(0, 0, 0));
 	surfaceModel = glm::scale(surfaceModel, glm::vec3(10000, 1, 10000));
 	surfaceModelMatrices[0] = surfaceModel;
 	Surface surface = Surface(surfaceModelMatrices, amount);
+	free(surfaceModelMatrices);
 
 	// Debug light cube
+	amount = 1;
 	glm::mat4* lightCubeModelMatrices = new glm::mat4[amount];
 	glm::mat4 lightCubeModel = glm::mat4(1.0f);
 	lightCubeModel = glm::translate(lightCubeModel, lightPosition);
 	lightCubeModel = glm::scale(lightCubeModel, glm::vec3(100, 100, 100));
 	lightCubeModelMatrices[0] = lightCubeModel;
 	StaticModel lightCube = StaticModel("../src/assets/cube/Cube.gltf", lightCubeModelMatrices, amount);
+	free(lightCubeModelMatrices);
+
+	// Cars
+	amount = 28;
+	glm::mat4* carModelMatrices = new glm::mat4[amount];
+	setupCarModelMatrices(carModelMatrices, amount);
+	StaticModel car = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", carModelMatrices, amount);
+	free(carModelMatrices);
 
 	// Buildings
 	amount = 36;
 	glm::mat4* buildingModelMatrices = new glm::mat4[amount];
-	float building_spacing = 300.0f;
-	int min_x = 60;
-	int max_x = 70;
-	int min_y = 160;
-	int max_y = 200;
-	std::random_device rd;
-    std::mt19937 engine(rd());
-	for (int i = 0; i < amount / 6; i++) {
-		for (int j = 0; j < 6; j++) {
-			int x = std::uniform_int_distribution<int>(min_x, max_x)(engine);
-			int y = std::uniform_int_distribution<int>(min_y, max_y)(engine);
-			glm::mat4 model = glm::mat4(1.0f);
-			model = glm::translate(model, glm::vec3(i * building_spacing, y, j * building_spacing));
-			model = glm::scale(model, glm::vec3(x, y, 48));
-			buildingModelMatrices[i * 6 + j] = model;
-		}
-	}
+	setupBuildingModelMatrices(buildingModelMatrices, amount);
 	Building building = Building(buildingModelMatrices, amount);
+	free(buildingModelMatrices);
+
+	// Trees
+	amount = 50;
+	glm::mat4* treeModelMatrices = new glm::mat4[amount];
+	setupTreeModelMatrices(treeModelMatrices, amount);
+	StaticModel tree = StaticModel("../src/assets/island_tree/island_tree_01_1k.gltf", treeModelMatrices, amount);
+	free(treeModelMatrices);
+
+	// Road blocks
+	amount = 50;
+	glm::mat4* roadBlockModelMatrices = new glm::mat4[amount];
+	setupRoadBlockModelMatrices(roadBlockModelMatrices, amount);
+	StaticModel roadBlock = StaticModel("../src/assets/concrete_road_barrier/concrete_road_barrier_1k.gltf", roadBlockModelMatrices, amount);
+	free(roadBlockModelMatrices);
+
+	// Grass
+	amount = 5000;
+	glm::mat4* grassModelMatrices = new glm::mat4[amount];
+	setupGrassModelMatrices(grassModelMatrices, amount);
+	StaticModel grass = StaticModel("../src/assets/grass/grass_medium_01_1k.gltf", grassModelMatrices, amount);
+	free(grassModelMatrices);
 
 	// Camera setup
-  	glm::mat4 viewMatrix, projectionMatrix;
+  	glm::mat4 viewMatrix, projectionMatrix, vp;
 	projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
+	viewMatrix = glm::lookAt(eye_center, lookat, up);
+	vp = projectionMatrix * viewMatrix;
+
+	// 0. create depth cubemap transformation matrices
+    // -----------------------------------------------
+    glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float)shadowWidth / (float)shadowHeight, depthNear, depthFar);
+    std::vector<glm::mat4> shadowTransforms;
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+    shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
+	// 1. render scene to depth cubemap
+    // --------------------------------
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glViewport(0, 0, shadowWidth, shadowHeight);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glCullFace(GL_FRONT);
+	depthShader.use();
+	for (unsigned int i = 0; i < 6; ++i) {
+		depthShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
+	}
+	depthShader.setFloat("far_plane", depthFar);
+	depthShader.setVec3("lightPos", lightPosition);
+	surface.render(vp, depthShader);
+	car.render(vp, depthShader);
+	building.render(vp, depthShader);
+	tree.render(vp, depthShader);
+	roadBlock.render(vp, depthShader);
+	// grass.render(vp, depthShader);
+	glCullFace(GL_BACK);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// Time and frame rate tracking
 	static double lastTime = glfwGetTime();
@@ -181,47 +217,19 @@ int main(void)
 		lastTime = currentTime;
 
 		viewMatrix = glm::lookAt(eye_center, lookat, up);
-		glm::mat4 vp = projectionMatrix * viewMatrix;
-
-		// 0. create depth cubemap transformation matrices
-        // -----------------------------------------------
-        glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float)shadowWidth / (float)shadowHeight, depthNear, depthFar);
-        std::vector<glm::mat4> shadowTransforms;
-        shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-        shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-        shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)));
-        shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)));
-        shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-        shadowTransforms.push_back(shadowProj * glm::lookAt(lightPosition, lightPosition + glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f)));
-
-		// 1. render scene to depth cubemap
-        // --------------------------------
-		glViewport(0, 0, shadowWidth, shadowHeight);
-		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glCullFace(GL_FRONT);
-		depthShader.use();
-		for (unsigned int i = 0; i < 6; ++i) {
-			depthShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
-		}
-		depthShader.setFloat("far_plane", depthFar);
-		depthShader.setVec3("lightPos", lightPosition);
-		surface.render(vp, depthShader);
-		// car.render(vp, depthShader);
-		building.render(vp, depthShader);
-		glCullFace(GL_BACK);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		vp = projectionMatrix * viewMatrix;
 		
 		// 2. render scene as normal using the generated depth/shadow map
 		// --------------------------------------------------------------
-		glViewport(0, 0, windowWidth*2, windowHeight*2);
+		glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
+		glViewport(0, 0, windowWidth, windowHeight);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		lightingShader.use();
 		lightingShader.setMat4("VP", vp);
 		lightingShader.setVec3("viewPos", eye_center);
 		lightingShader.setVec3("lightPos", lightPosition);
 		lightingShader.setVec3("lightIntensity", lightIntensity);
-		lightingShader.setInt("shadows", shadows);
+		lightingShader.setInt("shadows", 1);
 		lightingShader.setFloat("far_plane", depthFar);
 		lightingShader.setInt("reverse_normals", 0);
 		lightingShader.setInt("diffuseTexture", 0);
@@ -229,10 +237,14 @@ int main(void)
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 		surface.render(vp, lightingShader);
-		// car.render(vp, lightingShader);
+		car.render(vp, lightingShader);
 		building.render(vp, lightingShader);
-		lightCube.render(vp, lightingShader);
+		tree.render(vp, lightingShader);
+		roadBlock.render(vp, lightingShader);
+		// grass.render(vp, lightingShader);
 
+		// 3. Render the skybox separately from the rest of the scene
+		// --------------------------------------------------------------
 		skyboxShader.use();
 		skybox.render(vp);
 		
@@ -271,19 +283,174 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
+inline void renderShadowPass() {
+	
+}
+
+static void setupCarModelMatrices(glm::mat4* modelMatrices, int amount) {
+	int count = 0;
+	glm::mat4 identity = glm::mat4(1.0f);
+    glm::mat4 model = glm::translate(identity, glm::vec3(80, 1, 0));\
+	model = glm::scale(model, glm::vec3(10.0f, 10.0f, 10.0f));
+    modelMatrices[count++] = model;
+
+	model = glm::translate(identity, glm::vec3(300, 1, -80));
+	model = glm::scale(model, glm::vec3(10.0f, 10.0f, 10.0f));
+	model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0, 1, 0));
+	modelMatrices[count++] = model;
+	
+	model = glm::translate(identity, glm::vec3(520, 1, 580));
+	model = glm::scale(model, glm::vec3(10.0f, 10.0f, 10.0f));
+	model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0, 1, 0));
+	modelMatrices[count++] = model;
+
+	int car_spacing = 0;
+	for (count = count; count < amount; count++) {
+		// Place cars in the backyard
+		model = glm::translate(identity, glm::vec3(750 - car_spacing, 1, 800));
+		model = glm::scale(model, glm::vec3(10.0f, 10.0f, 10.0f));
+		model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0, 1, 0));
+		modelMatrices[count] = model;
+		car_spacing += 50;
+	}
+}
+
+static void setupBuildingModelMatrices(glm::mat4* modelMatrices, int amount) {
+	float building_spacing = 300.0f;
+	int min_x = 60;
+	int max_x = 70;
+	int min_y = 160;
+	int max_y = 200;
+	std::random_device rd;
+    std::mt19937 engine(rd());
+	vector<glm::mat4> buildings;
+	for (int i = -amount / 12; i < amount / 12; i++) {
+		for (int j = -amount / 12; j < amount / 12; j++) {
+			int x = std::uniform_int_distribution<int>(min_x, max_x)(engine);
+			int y = std::uniform_int_distribution<int>(min_y, max_y)(engine);
+			glm::mat4 model = glm::mat4(1.0f);
+			model = glm::translate(model, glm::vec3(i * building_spacing, y, j * building_spacing));
+			model = glm::scale(model, glm::vec3(x, y, 48));
+			buildings.push_back(model);
+		}
+	}
+
+	for (int i = 0; i < amount; i++) {
+		modelMatrices[i] = buildings[i];
+	}
+}
+
+static void setupTreeModelMatrices(glm::mat4* modelMatrices, int amount) {
+	srand(glfwGetTime()); // initialize random seed	
+	float radius = 1500.0;
+	float offset = 200.0f;
+	for (int i = 0; i < amount; i++)
+	{
+	    glm::mat4 model = glm::mat4(1.0f);
+	    // 1. translation: displace along circle with 'radius' in range [-offset, offset]
+	    float angle = (float)i / (float)amount * 360.0f;
+	    float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+	    float x = sin(angle) * radius + displacement;
+	    displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+	    float z = cos(angle) * radius + displacement;
+	    model = glm::translate(model, glm::vec3(x, 0, z));
+
+	    // 2. scale: scale between 5 and 10
+	    // float scale = (rand() % 5 + 5) / 10.0f;
+		model = glm::scale(model, glm::vec3(50, 50, 50));
+
+	    // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
+	    float rotAngle = (rand() % 360);
+	    model = glm::rotate(model, rotAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	    // 4. now add to list of matrices
+	    modelMatrices[i] = model;
+	}  
+}
+
+static void setupRoadBlockModelMatrices(glm::mat4* modelMatrices, int amount) {
+    float cityWidth = 2000.0f;   // Width of the city
+    float cityHeight = 2000.0f;  // Height of the city
+    float spacing = 200.0f;      // Spacing between roadblocks
+    float roadBlockHeight = 10.0f;  // Height of the roadblocks
+
+ 	int count = 0;
+    glm::mat4 model;
+    
+    // Place roadblocks along the top edge
+    for (float x = -cityWidth / 2; x <= cityWidth / 2; x += spacing) {
+        if (count >= amount) break;
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(x, roadBlockHeight, -cityHeight / 2));
+        model = glm::scale(model, glm::vec3(100, 100, 100)); // Adjust scale if needed
+        modelMatrices[count++] = model;
+    }
+ 
+    // Place roadblocks along the bottom edge
+    for (float x = -cityWidth / 2; x <= cityWidth / 2; x += spacing) {
+        if (count >= amount) break;
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(x, roadBlockHeight, cityHeight / 2));
+        model = glm::scale(model, glm::vec3(100, 100, 100)); // Adjust scale if needed
+		model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrices[count++] = model;
+    }
+
+    // Place roadblocks along the left edge
+    for (float z = -cityHeight / 2; z <= cityHeight / 2; z += spacing) {
+        if (count >= amount) break;
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-cityWidth / 2, roadBlockHeight, z));
+        model = glm::scale(model, glm::vec3(100, 100, 100)); // Adjust scale if needed
+		model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrices[count++] = model;
+    }
+
+    // Place roadblocks along the right edge
+    for (float z = -cityHeight / 2; z <= cityHeight / 2; z += spacing) {
+        if (count >= amount) break;
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(cityWidth / 2, roadBlockHeight, z));
+        model = glm::scale(model, glm::vec3(100, 100, 100)); // Adjust scale if needed
+		model = glm::rotate(model, glm::radians(270.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrices[count++] = model;
+    }
+}
+
+static void setupGrassModelMatrices(glm::mat4* modelMatrices, int amount) {
+	float fieldWidth = 2000;
+	float fieldHeight = 2500;
+	float spacing = 35;
+
+	int count = 0;
+	glm::mat4 model;
+	
+	for (int x = 0; x < fieldWidth; x += spacing) {
+		for (int z = 0; z < fieldHeight; z += spacing) {
+			if (count >= amount) break;
+			model = glm::mat4(1.0f);
+			model = glm::translate(model, glm::vec3((-fieldWidth) / 2 + x, 1, (-fieldHeight) / 2 + z));
+			model = glm::scale(model, glm::vec3(50, 50, 50));
+			modelMatrices[count++] = model;
+		}
+	}
+}
+ 
 static void configureDepthMapFBO() {
     glGenFramebuffers(1, &depthMapFBO);
 	glGenTextures(1, &depthCubemap);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
-	for (unsigned int i = 0; i < 6; i++) {
-	    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
-	                 shadowWidth, shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	for (unsigned int i = 0; i < 6; i++) {
+	    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, shadowWidth, shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glGenerateMipmap(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i);
+	}
+	
 
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
@@ -293,6 +460,7 @@ static void configureDepthMapFBO() {
 	    std::cerr << "Framebuffer is not complete!" << std::endl;
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode) {	
