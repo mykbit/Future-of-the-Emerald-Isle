@@ -151,7 +151,7 @@ int main(void)
 	Building building = Building(buildingModelMatrices, amount);
 
 	// Trees
-	amount = 300;
+	amount = 700;
 	glm::mat4* treeModelMatrices = new glm::mat4[amount];
 	setupTreeModelMatrices(treeModelMatrices, amount);
 	StaticModel tree = StaticModel("../src/assets/quiver_tree/quiver_tree_02_1k.gltf", treeModelMatrices, amount);
@@ -163,10 +163,10 @@ int main(void)
 	StaticModel roadBlock = StaticModel("../src/assets/concrete_road_barrier/concrete_road_barrier_1k.gltf", roadBlockModelMatrices, amount);
 
 	// Grass
-	amount = 5000;
-	glm::mat4* grassModelMatrices = new glm::mat4[amount];
-	setupGrassModelMatrices(grassModelMatrices, amount);
-	StaticModel grass = StaticModel("../src/assets/grass/grass_medium_01_1k.gltf", grassModelMatrices, amount);
+	// amount = 5000;
+	// glm::mat4* grassModelMatrices = new glm::mat4[amount];
+	// setupGrassModelMatrices(grassModelMatrices, amount);
+	// StaticModel grass = StaticModel("../src/assets/grass/grass_medium_01_1k.gltf", grassModelMatrices, amount);
 
 	// Airplane
 	amount = 1;
@@ -258,7 +258,6 @@ int main(void)
 		tree.render(vp, lightingShader);
 		roadBlock.render(vp, lightingShader);
 
-		
 		airplaneMovementMatrix = glm::translate(airplaneMovementMatrix, glm::vec3(0, 0, 1));
 		airplane.render(vp, lightingShader, airplaneMovementMatrix);
 		transCount++;
@@ -364,8 +363,8 @@ static void setupBuildingModelMatrices(glm::mat4* modelMatrices, int amount) {
 
 static void setupTreeModelMatrices(glm::mat4* modelMatrices, int amount) {
 	srand(glfwGetTime()); // initialize random seed	
-	float radius = 2200.0;
-	float offset = 800.0f;
+	float radius = 3000.0;
+	float offset = 1500.0f;
 	for (int i = 0; i < amount; i++)
 	{
 	    glm::mat4 model = glm::mat4(1.0f);
