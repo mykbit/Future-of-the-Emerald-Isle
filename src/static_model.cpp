@@ -19,9 +19,16 @@ StaticModel::StaticModel(const char* modelPath, glm::mat4* modelMatrices, int am
 
 bool StaticModel::loadModel(const char *filename) {
 	tinygltf::TinyGLTF loader;
+	bool res;
 	string err;
 	string warn;
-	bool res = loader.LoadASCIIFromFile(&this->model, &err, &warn, filename);
+	// check if filename has .glb extension
+	if (strstr(filename, ".glb") != NULL) {
+		res = loader.LoadBinaryFromFile(&this->model, &err, &warn, filename);
+	} else {
+		res = loader.LoadASCIIFromFile(&this->model, &err, &warn, filename);
+	}
+	
 	if (!warn.empty()) {
 		cout << "WARN: " << warn << endl;
 	}
@@ -122,6 +129,31 @@ void StaticModel::bindPrimitive(tinygltf::Model &model, StaticModel::Primitive &
       	  	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, format, type, &image.image.at(0));
 			glGenerateMipmap(GL_TEXTURE_2D);
       	}
+    } else if (model.materials[prim_gltf.material].values.find("baseColorFactor") != model.materials[prim_gltf.material].values.end()) {
+        // Fallback: Use baseColorFactor as texture
+        tinygltf::Parameter parameter = model.materials[prim_gltf.material].values["baseColorFactor"];
+        glm::vec4 baseColorFactor = glm::make_vec4(parameter.ColorFactor().data());
+        GLubyte data[4] = {
+            static_cast<GLubyte>(baseColorFactor.r * 255),
+            static_cast<GLubyte>(baseColorFactor.g * 255),
+            static_cast<GLubyte>(baseColorFactor.b * 255),
+            static_cast<GLubyte>(baseColorFactor.a * 255)};
+        
+        glGenTextures(1, &primitive.texID);
+        glBindTexture(GL_TEXTURE_2D, primitive.texID);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    } else {
+        // Handle case where neither texture nor baseColorFactor is provided
+        glGenTextures(1, &primitive.texID);
+        glBindTexture(GL_TEXTURE_2D, primitive.texID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     }
 }
 
@@ -208,10 +240,10 @@ void StaticModel::drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, g
 	}
 }
 
-void StaticModel::render(glm::mat4 vp, Shader& shader) {
+void StaticModel::render(glm::mat4 vp, Shader& shader, glm::mat4 transform) {
 	const tinygltf::Scene &scene = model.scenes[model.defaultScene];
 	for (size_t i = 0; i < scene.nodes.size(); i++) {
 		tinygltf::Node &node = model.nodes[scene.nodes[i]];
-		drawModelNodes(model, node, vp, glm::mat4(1.0f), shader);
+		drawModelNodes(model, node, vp, transform, shader);
 	}
 }

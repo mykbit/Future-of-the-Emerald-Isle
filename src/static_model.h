@@ -48,7 +48,7 @@ class StaticModel {
         void drawPrimitives(vector<Primitive> &primitives, tinygltf::Model &model, tinygltf::Mesh &mesh);
         void drawDepthPrimitives(vector<Primitive> &primitives, tinygltf::Model &model, tinygltf::Mesh &mesh);
         void drawModelNodes(tinygltf::Model &model, tinygltf::Node &node, glm::mat4 vp, glm::mat4 parentTransform, Shader& shader);
-        void render(glm::mat4 cameraMatrix, Shader& shader);
+        void render(glm::mat4 cameraMatrix, Shader& shader, glm::mat4 transform = glm::mat4(1.0f));
         void cleanup();
 };
 

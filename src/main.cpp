@@ -22,6 +22,8 @@ static int shadowWidth = 16384;
 static int shadowHeight = 16384;
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode);
+static void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+static void processInput(GLFWwindow *window);
 static void configureDepthMapFBO();
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 static void setupCarModelMatrices(glm::mat4* modelMatrices, int amount);
@@ -29,12 +31,21 @@ static void setupBuildingModelMatrices(glm::mat4* modelMatrices, int amount);
 static void setupTreeModelMatrices(glm::mat4* modelMatrices, int amount);
 static void setupRoadBlockModelMatrices(glm::mat4* modelMatrices, int amount);
 static void setupGrassModelMatrices(glm::mat4* modelMatrices, int amount);
+static void setupAirplaneModelMatrices(glm::mat4* modelMatrices, int amount);
 
 // Camera
-static float cameraSpeed = 100.0f;
+static float cameraSpeed = 1000.0f;
 static glm::vec3 eye_center(0.0f, 150.0f, -800.0f);
 static glm::vec3 lookat(0.0f, 0.0f, -1.0f);
 static glm::vec3 up(0.0f, 1.0f, 0.0f);
+static float yaw = -90.0f;
+static float pitch = 0.0f;
+static float lastX = windowWidth / 2.0f;
+static float lastY = windowHeight / 2.0f;
+static bool firstMouse = true;
+static float sensitivity = 0.1f;
+static float deltaTime = 0.0f;
+static float lastTime = 0.0f;
 static float FoV = 45.0f;
 static float zNear = 0.1f;
 static float zFar = 20000.0f; 
@@ -84,6 +95,8 @@ int main(void)
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	// Load OpenGL functions, gladLoadGL returns the loaded version, 0 on error.
 	int version = gladLoadGL(glfwGetProcAddress);
@@ -115,7 +128,6 @@ int main(void)
 	surfaceModel = glm::scale(surfaceModel, glm::vec3(10000, 1, 10000));
 	surfaceModelMatrices[0] = surfaceModel;
 	Surface surface = Surface(surfaceModelMatrices, amount);
-	free(surfaceModelMatrices);
 
 	// Debug light cube
 	amount = 1;
@@ -125,47 +137,50 @@ int main(void)
 	lightCubeModel = glm::scale(lightCubeModel, glm::vec3(100, 100, 100));
 	lightCubeModelMatrices[0] = lightCubeModel;
 	StaticModel lightCube = StaticModel("../src/assets/cube/Cube.gltf", lightCubeModelMatrices, amount);
-	free(lightCubeModelMatrices);
 
 	// Cars
 	amount = 28;
 	glm::mat4* carModelMatrices = new glm::mat4[amount];
 	setupCarModelMatrices(carModelMatrices, amount);
 	StaticModel car = StaticModel("../src/assets/covered_car/covered_car_1k.gltf", carModelMatrices, amount);
-	free(carModelMatrices);
 
 	// Buildings
 	amount = 36;
 	glm::mat4* buildingModelMatrices = new glm::mat4[amount];
 	setupBuildingModelMatrices(buildingModelMatrices, amount);
 	Building building = Building(buildingModelMatrices, amount);
-	free(buildingModelMatrices);
 
 	// Trees
-	amount = 50;
+	amount = 300;
 	glm::mat4* treeModelMatrices = new glm::mat4[amount];
 	setupTreeModelMatrices(treeModelMatrices, amount);
-	StaticModel tree = StaticModel("../src/assets/island_tree/island_tree_01_1k.gltf", treeModelMatrices, amount);
-	free(treeModelMatrices);
+	StaticModel tree = StaticModel("../src/assets/quiver_tree/quiver_tree_02_1k.gltf", treeModelMatrices, amount);
 
 	// Road blocks
 	amount = 50;
 	glm::mat4* roadBlockModelMatrices = new glm::mat4[amount];
 	setupRoadBlockModelMatrices(roadBlockModelMatrices, amount);
 	StaticModel roadBlock = StaticModel("../src/assets/concrete_road_barrier/concrete_road_barrier_1k.gltf", roadBlockModelMatrices, amount);
-	free(roadBlockModelMatrices);
 
 	// Grass
 	amount = 5000;
 	glm::mat4* grassModelMatrices = new glm::mat4[amount];
 	setupGrassModelMatrices(grassModelMatrices, amount);
 	StaticModel grass = StaticModel("../src/assets/grass/grass_medium_01_1k.gltf", grassModelMatrices, amount);
-	free(grassModelMatrices);
+
+	// Airplane
+	amount = 1;
+	glm::mat4* airplaneModelMatrices = new glm::mat4[amount];
+	setupAirplaneModelMatrices(airplaneModelMatrices, amount);
+	glm::mat4 airplaneMovementMatrix = glm::mat4(1.0f);
+	glm::vec3 flightRestrictions = glm::vec3(3000, 3000, 3000);
+	int transCount = 0;
+	StaticModel airplane = StaticModel("../src/assets/airplane/airplane.glb", airplaneModelMatrices, amount);
 
 	// Camera setup
   	glm::mat4 viewMatrix, projectionMatrix, vp;
 	projectionMatrix = glm::perspective(glm::radians(FoV), (float)windowWidth / windowHeight, zNear, zFar);
-	viewMatrix = glm::lookAt(eye_center, lookat, up);
+	viewMatrix = glm::lookAt(eye_center, eye_center + lookat, up);
 	vp = projectionMatrix * viewMatrix;
 
 	// 0. create depth cubemap transformation matrices
@@ -196,12 +211,13 @@ int main(void)
 	building.render(vp, depthShader);
 	tree.render(vp, depthShader);
 	roadBlock.render(vp, depthShader);
+	airplane.render(vp, depthShader);
 	// grass.render(vp, depthShader);
 	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// Time and frame rate tracking
-	static double lastTime = glfwGetTime();
+	lastTime = glfwGetTime();
 	float time = 0.0f;			// Animation time 
 	float fTime = 0.0f;			// Time for measuring fps
 	unsigned long frames = 0;
@@ -213,10 +229,10 @@ int main(void)
 
 		// Update states for animation
         double currentTime = glfwGetTime();
-        float deltaTime = float(currentTime - lastTime);
+        deltaTime = float(currentTime - lastTime);
 		lastTime = currentTime;
 
-		viewMatrix = glm::lookAt(eye_center, lookat, up);
+		viewMatrix = glm::lookAt(eye_center, eye_center + lookat, up);
 		vp = projectionMatrix * viewMatrix;
 		
 		// 2. render scene as normal using the generated depth/shadow map
@@ -241,6 +257,15 @@ int main(void)
 		building.render(vp, lightingShader);
 		tree.render(vp, lightingShader);
 		roadBlock.render(vp, lightingShader);
+
+		
+		airplaneMovementMatrix = glm::translate(airplaneMovementMatrix, glm::vec3(0, 0, 1));
+		airplane.render(vp, lightingShader, airplaneMovementMatrix);
+		transCount++;
+		if ((transCount >= flightRestrictions.x) || (transCount >= flightRestrictions.y) || (transCount >= flightRestrictions.z)) {
+			airplaneMovementMatrix = glm::mat4(1.0f);
+			transCount = 0;
+		} 
 		// grass.render(vp, lightingShader);
 
 		// 3. Render the skybox separately from the rest of the scene
@@ -261,6 +286,7 @@ int main(void)
 			stream << fixed << setprecision(2) << "Emerald Isle | " << fps << " FPS";
 			glfwSetWindowTitle(window, stream.str().c_str());
 		}
+		processInput(window);
 		// Swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -281,10 +307,6 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
-}
-
-inline void renderShadowPass() {
-	
 }
 
 static void setupCarModelMatrices(glm::mat4* modelMatrices, int amount) {
@@ -342,8 +364,8 @@ static void setupBuildingModelMatrices(glm::mat4* modelMatrices, int amount) {
 
 static void setupTreeModelMatrices(glm::mat4* modelMatrices, int amount) {
 	srand(glfwGetTime()); // initialize random seed	
-	float radius = 1500.0;
-	float offset = 200.0f;
+	float radius = 2200.0;
+	float offset = 800.0f;
 	for (int i = 0; i < amount; i++)
 	{
 	    glm::mat4 model = glm::mat4(1.0f);
@@ -357,7 +379,7 @@ static void setupTreeModelMatrices(glm::mat4* modelMatrices, int amount) {
 
 	    // 2. scale: scale between 5 and 10
 	    // float scale = (rand() % 5 + 5) / 10.0f;
-		model = glm::scale(model, glm::vec3(50, 50, 50));
+		model = glm::scale(model, glm::vec3(150, 150, 150));
 
 	    // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
 	    float rotAngle = (rand() % 360);
@@ -435,6 +457,15 @@ static void setupGrassModelMatrices(glm::mat4* modelMatrices, int amount) {
 		}
 	}
 }
+
+static void setupAirplaneModelMatrices(glm::mat4* modelMatrices, int amount) {
+	for (int i = 0; i < amount; i++) {
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(200, 500, -10000));
+		model = glm::scale(model, glm::vec3(10, 10, 10));
+		modelMatrices[i] = model;
+	}
+}
  
 static void configureDepthMapFBO() {
     glGenFramebuffers(1, &depthMapFBO);
@@ -450,7 +481,6 @@ static void configureDepthMapFBO() {
 	    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, shadowWidth, shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i);
 	}
-	
 
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
@@ -463,72 +493,49 @@ static void configureDepthMapFBO() {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
-static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode) {	
-	glm::vec3 forward = glm::normalize(lookat - eye_center);
-
-    // Calculate right (perpendicular direction to both 'up' and 'forward')
-    glm::vec3 right = glm::normalize(glm::cross(up, forward));
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        // Move forward (along the 'lookat' direction)
-        eye_center += cameraSpeed * forward;
-        lookat += cameraSpeed * forward;
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, true);
     }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        // Move left (perpendicular to the 'lookat' direction)
-		eye_center += cameraSpeed * right;
-        lookat += cameraSpeed * right;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        // Move backward (opposite of the 'lookat' direction)
-        eye_center -= cameraSpeed * forward;
-        lookat -= cameraSpeed * forward;
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        // Move right (perpendicular to the 'lookat' direction)
-        eye_center -= cameraSpeed * right;
-        lookat -= cameraSpeed * right;
-    }
-	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)  // Left arrow key
-	{
-		// Rotate the camera around the Y-axis (counterclockwise)
-		float angle = 0.05f; // Set the rotation speed (radians)
-		
-		// Calculate new position for the camera
-		float x = eye_center.x * cos(angle) - eye_center.z * sin(angle);
-		float z = eye_center.x * sin(angle) + eye_center.z * cos(angle);
-		
-		// Update eye_center (camera position)
-		eye_center.x = x;
-		eye_center.z = z;
+}
 
-		// Update the lookat direction to always point to the center of the object
-		lookat = glm::normalize(glm::vec3(-eye_center.x, 0.0f, -eye_center.z));
-	}
-	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)  // Right arrow key
-	{
-		// Rotate the camera around the Y-axis (clockwise)
-		float angle = -0.05f; // Negative for clockwise
-		
-		// Calculate new position for the camera
-		float x = eye_center.x * cos(angle) - eye_center.z * sin(angle);
-		float z = eye_center.x * sin(angle) + eye_center.z * cos(angle);
-		
-		// Update eye_center (camera position)
-		eye_center.x = x;
-		eye_center.z = z;
+static void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
 
-		// Update the lookat direction to always point to the center of the object
-		lookat = glm::normalize(glm::vec3(-eye_center.x, 0.0f, -eye_center.z));
-	}
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // Reversed since y-coordinates range from bottom to top
+    lastX = xpos;
+    lastY = ypos;
 
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-		eye_center.y += 10.0f;
-	}
-	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-		eye_center.y -= 10.0f;
-	}
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-		glfwSetWindowShouldClose(window, GL_TRUE);
-	}
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    lookat = glm::normalize(front);
+}
+
+static void processInput(GLFWwindow* window) {
+    float velocity = cameraSpeed * deltaTime;
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        eye_center += velocity * lookat;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        eye_center -= velocity * lookat;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        eye_center -= glm::normalize(glm::cross(lookat, up)) * velocity;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        eye_center += glm::normalize(glm::cross(lookat, up)) * velocity;
 }
